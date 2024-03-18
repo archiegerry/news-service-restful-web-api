@@ -7,7 +7,7 @@ global_url=""
 def login(url):
 
     global session, global_url
-    global_url = url
+    global_url = "https://" + url
 
     username = input("Enter username: ")
     password = getpass.getpass("Enter password: ")
@@ -79,14 +79,8 @@ def post_news():
         print(response.reason)
 
 def get_news(switches):
-    global session, global_url
-
-    if global_url == "":
-        print("You have not logged in.")
-        return
 
     params = {
-       # 'story_id': '*',
         'story_cat': '*',
         'story_region': '*',
         'story_date': '*'
@@ -96,10 +90,12 @@ def get_news(switches):
         'Content-Type': 'application/x-www-form-urlencoded'
     }
 
+    newsservice = ""
+
     for arg in switches:
-       # if arg.startswith("-id="):
-        #    params['story_id'] = arg[len("-id="):]
-        if arg.startswith("-cat="):
+        if arg.startswith("-id="):
+            newsservice = arg[len("-id="):]
+        elif arg.startswith("-cat="):
             params['story_cat'] = arg[len("-cat="):]
         elif arg.startswith("-reg="):
             params['story_region'] = arg[len("-reg="):]
@@ -111,22 +107,65 @@ def get_news(switches):
             print("Usage: news [-id=] [-cat=] [-reg=] [-date=]")
             return
         
-    response = session.get(f"{global_url}api/stories", headers=headers, params=params)
+    url = "https://newssites.pythonanywhere.com"    
+    directory_response = requests.get(f"{url}/api/directory/")
+    directory_data = directory_response.json()
 
-    if response.status_code == 200:
-        print("News fetched successfully.")
-        news_items = response.json()
-        for news in news_items:
-            print(f"ID: {news['key']}, Headline: {news['headline']}, Category: {news['story_cat']}, Region: {news['story_region']}, Date: {news['story_date']}, Author: {news['author']}, Details: {news['story_details']}")
+    if newsservice == "":
+        print(f"{'ID':<10} {'Headline':<30} {'Category':<15} {'Region':<15} {'Date':<10} {'Author':<20} {'Details':<30}")
+        for agency in directory_data:
+            response = session.get(f"{agency['url']}/api/stories", headers=headers, params=params)
+            if response.status_code == 200:
+                    news_items = response.json()
+                    try:
+                        for news in news_items['stories']:
+                            try:
+                                print(f"{news['key']:<10} {news['headline'][:28]:<30} {news['story_cat']:<15} {news['story_region']:<15} {news['story_date']:<10} {news['author'][:18]:<20} {news['story_details'][:28]:<128}")
+                            except (KeyError, TypeError):
+                                print("Server error.")
+                    except (KeyError, TypeError):
+                        print("Server error.")
+
+            else:
+                    print("Failed to fetch news.")
+                    print(response.reason)
     else:
-        print("Failed to fetch news.")
-        print(response.reason)
+        matched = 0
+        for agency in directory_data:
+            if agency['agency_code'] == newsservice:
+                matched = 1
+                response = session.get(f"{agency['url']}/api/stories", headers=headers, params=params)
+                if response.status_code == 200:
+                    print(f"{'ID':<10} {'Headline':<30} {'Category':<15} {'Region':<15} {'Date':<10} {'Author':<20} {'Details':<30}")
+                    news_items = response.json()
+                    try:
+                        for news in news_items['stories']:
+                            try:
+                                print(f"{news['key']:<10} {news['headline'][:28]:<30} {news['story_cat']:<15} {news['story_region']:<15} {news['story_date']:<10} {news['author'][:18]:<20} {news['story_details'][:28]:<128}")
+                            except (KeyError, TypeError):
+                                print("Server error.")
+                    except (KeyError, TypeError):
+                        print("Server error.")
+                else:
+                    print("Failed to fetch news.")
+                    print(response.reason)
+        if matched == 0:
+            print("No agency found with that code.")
 
 
 def list_services():
-    global session, global_url
+    url = "https://newssites.pythonanywhere.com"
 
-    print("Listing services...")
+    response = requests.get(f"{url}/api/directory/")
+
+    if response.status_code == 200:
+        print("Success")
+        data = response.json()
+        for agency in data:
+            print(f"Agency Name: {agency['agency_name']}, URL: {agency['url']}, Code: {agency['agency_code']}")
+    else:
+        print("Failure")
+        print(response.content)
 
 def delete_news(key):
     global session, global_url

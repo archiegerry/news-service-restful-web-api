@@ -95,7 +95,7 @@ def HandleLogoutRequest(request):
             status=405,
             reason="Method Not Allowed")
         return response
-
+    
 # Handles posting and requesting news stories
 @csrf_exempt
 def HandleStoryRequests(request):
@@ -111,7 +111,7 @@ def HandleStoryRequests(request):
                     status=503,
                     reason="Service Unavailable")
                 return response
-            
+
             try:
                 author= Author.objects.get(user=request.user)
             except Author.DoesNotExist:
@@ -121,15 +121,15 @@ def HandleStoryRequests(request):
                     status=503,
                     reason="Service Unavailable")
                 return response
-            
+
             headline = data.get('headline')
             category = data.get('category')
             region = data.get('region')
             details = data.get('details')
-            
-            if ((headline != "") and 
+
+            if ((headline != "") and
                 (category == "pol" or category == "art" or category == "tech" or category == "trivia") and
-                (region == "uk" or region == "eu" or region == "w") and 
+                (region == "uk" or region == "eu" or region == "w") and
                 (details != "")):
                 story = Story(
                     headline=headline,
@@ -152,7 +152,7 @@ def HandleStoryRequests(request):
                     status=503,
                     reason="Service Unavailable")
                 return response
-            
+
        else:
             response = HttpResponse(
                 "User is not logged in.",
@@ -160,9 +160,9 @@ def HandleStoryRequests(request):
                 status=503,
                 reason="Service Unavailable")
             return response
-       
+
     ## GET STORY REQUESTS
-    else: 
+    else:
         if (request.method == 'GET'):
             if (request.content_type == 'application/x-www-form-urlencoded'):
 
@@ -175,16 +175,16 @@ def HandleStoryRequests(request):
                              status=400,
                              reason="Bad Request")
                      return response
-                 
+
                  filters = {}
- 
+
                  if params['story_cat'] != '*':
                     filters['category'] = params['story_cat']
                  if params['story_region'] != '*':
                     filters['region'] = params['story_region']
                  if params['story_date'] != '*':
                     try:
-                        filters['datetime__gte'] = datetime.strptime(params['story_date'], "%Y-%m-%d")                        
+                        filters['datetime__gte'] = datetime.strptime(params['story_date'], "%Y-%m-%d")
                     except ValueError:
                         response = HttpResponse(
                              "Invalid date format.",
@@ -192,14 +192,14 @@ def HandleStoryRequests(request):
                              status=400,
                              reason="Bad Request")
                         return response
-                    
-                 stories = Story.objects.filter(**filters)
 
-                 if stories.exists():
-                    stories_data = []
-                    for story in stories:
+                 stories_data = Story.objects.filter(**filters)
+
+                 if stories_data.exists():
+                    stories = []
+                    for story in stories_data:
                         story_dict = {
-                            "key": story.pk,
+                            "key": str(story.pk),
                             "headline": story.headline,
                             "story_cat": story.category,
                             "story_region": story.region,
@@ -207,10 +207,11 @@ def HandleStoryRequests(request):
                             "story_date": story.datetime.strftime("%Y-%m-%d"),
                             "story_details": story.details,
                         }
-                        stories_data.append(story_dict)
+                        stories.append(story_dict)
 
-                    return JsonResponse(stories_data, safe=False, status=200)
-                 
+
+                    return JsonResponse({"stories":stories}, safe=False, status=200)
+
                  else:
                      response = HttpResponse(
                              "No stories available.",
@@ -225,7 +226,7 @@ def HandleStoryRequests(request):
                     content_type="text/plain",
                     status=415,
                     reason="Unsupported Media Type")
-                return response 
+                return response
         else:
             response = HttpResponse(
                 "Invalid request method.",
